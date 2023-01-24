@@ -103,7 +103,7 @@ We run the following command after creating a basic index.html file.
 $ php -S 10.10.14.116:8000
 [Tue Jan 24 15:05:45 2023] PHP 8.1.12 Development Server (http://10.10.14.116:8000) started
 ```
-By inputting the address to our local server  we get the visit!
+By inputting the address to our local server we get the visit!
 ```bash
 [Tue Jan 24 15:07:26 2023] 10.10.11.189:51626 Accepted
 [Tue Jan 24 15:07:26 2023] 10.10.11.189:51626 [200]: GET /
@@ -113,6 +113,11 @@ On the other hand, in the browser, we get our pdf.
 
 ![Precious](imgs/receivedpdf.png)
 
+Going further, we try to inspect the web page with Burp Suite. Upon requesting the root directory and intercepting the response we start getting more details.
+
+![Precious](imgs/burpsuiteroot.png)
+
+We can see a response header with the value "ruby", hinting the backend could be written in ruby. We can see as well Phantom??.. 
 
 ---
 
