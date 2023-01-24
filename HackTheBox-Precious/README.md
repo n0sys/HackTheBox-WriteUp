@@ -117,7 +117,17 @@ Going further, we try to inspect the web page with Burp Suite. Upon requesting t
 
 ![Precious](imgs/burpsuiteroot.png)
 
-We can see a response header with the value "ruby", hinting the backend could be written in ruby. We can see as well Phantom??.. 
+We can see the response header "X-Runtime" with the value "Ruby", hinting the backend could be written in the Ruby programming language. We can see aswell Phusion Passenger which is an app server that supports Ruby.
+Great! We can continue now by inspecting the response of the web app to the URL input.
+
+![Precious](imgs/burpsuiteresponse.png)
+
+As we can see the response contains the generated pdf file. Going through its contents, we notice data refering to the tool that generated the pdf.
+
+![Precious](imgs/pdfkit.png)
+
+Searching through the internet about it, shows that it is actually a module in Ruby that generates PDFs from given URLs. Going further we can see that the version used in our web app is old and vulnerable to command injection!
+
 
 ---
 
