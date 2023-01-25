@@ -17,6 +17,7 @@ Completed on ??/??/20??
       - [Nmap Scan](#nmap-scan)
       - [HTTP - Port 80](#http---port-80)
     - [Exploitation](#exploitation)
+      - [Ruby PDFKit Command Injection](#ruby-pdfkit-command-injection)
     - [Post Exploitation](#post-exploitation)
 
 <!-- /TOC -->
