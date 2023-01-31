@@ -3,3 +3,4 @@ This repository contains writeups on HackTheBox machines that I've worked on. Ho
 
 ### Machines
 - [Precious](https://github.com/n0sys/HackTheBox-WriteUp/tree/main/HackTheBox-Precious)
+- [Photobomb](https://github.com/n0sys/HackTheBox-WriteUp/tree/main/HackTheBox-Photobomb)
