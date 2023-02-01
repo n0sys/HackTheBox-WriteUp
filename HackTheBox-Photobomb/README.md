@@ -36,6 +36,22 @@ PORT   STATE SERVICE VERSION
 Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
 ```
 Lets explore further http on port 80
+
+#### Exploring the website
+After editing /etc/hosts and visiting the website, we get the following
+![photobomb](imgs/website.png)
+Clicking the hyperlink directs us to a login form which we will surely try to manipulate! The page source returned nothing interesting. We continued by checking what the server returns in case of bad request
+```
+<center><h1>400 Bad Request</h1></center>
+<hr><center>nginx/1.18.0 (Ubuntu)</center>
+```
+And the 404 response
+![photobomb](imgs/404.png)
+Looking at the source page, we find a local URL with a port number
+```html
+ <img src='http://127.0.0.1:4567/__sinatra__/404.png'>
+```
+We attempted several scans on the port to see if it is active but got no positive results back
 #### Nikto scan
 We run the nikto scan to get a primary view of possible problems with our website
 ```bash
@@ -62,9 +78,9 @@ $ nikto -h http://$IP
 ---------------------------------------------------------------------------
 ```
 #### Directory Fuzzing
-Upon starting the directory fuzzing with ffuf, we get plenty of results right away with response status 302
+After running the fuzzing for a while, we notice that all results found contain printer and some other characters and they all require authentication to access them. After trying different combinations and getting same response 401 ("/printera", "/printerb"..), we can realise that the developpers must have wanted to block the "/printer/" directory so they return 401 for all "/printer*" URI requests. 
 ```bash
-$ ffuf -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -u http://$IP/FUZZ -e ".php,.html"
+$ ffuf -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -u http://photobomb.htb/FUZZ -e ".php,.html" -fs 154
 
         /'___\  /'___\           /'___\       
        /\ \__/ /\ \__/  __  __  /\ \__/       
@@ -77,7 +93,7 @@ $ ffuf -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -u http:/
 ________________________________________________
 
  :: Method           : GET
- :: URL              : http://10.10.11.182/FUZZ
+ :: URL              : http://photobomb.htb/FUZZ
  :: Wordlist         : FUZZ: /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt
  :: Extensions       : .php .html 
  :: Follow redirects : false
@@ -85,39 +101,63 @@ ________________________________________________
  :: Timeout          : 10
  :: Threads          : 40
  :: Matcher          : Response status: 200,204,301,302,307,401,403,405,500
+ :: Filter           : Response size: 154
 ________________________________________________
-
-.php                    [Status: 302, Size: 154, Words: 4, Lines: 8, Duration: 195ms]
-.html                   [Status: 302, Size: 154, Words: 4, Lines: 8, Duration: 195ms]
-index                   [Status: 302, Size: 154, Words: 4, Lines: 8, Duration: 192ms]
-index.php               [Status: 302, Size: 154, Words: 4, Lines: 8, Duration: 193ms]
-index.html              [Status: 302, Size: 154, Words: 4, Lines: 8, Duration: 195ms]
-images                  [Status: 302, Size: 154, Words: 4, Lines: 8, Duration: 193ms]
-download                [Status: 302, Size: 154, Words: 4, Lines: 8, Duration: 190ms]
-download.php            [Status: 302, Size: 154, Words: 4, Lines: 8, Duration: 189ms]
-download.html           [Status: 302, Size: 154, Words: 4, Lines: 8, Duration: 192ms]
-2006                    [Status: 302, Size: 154, Words: 4, Lines: 8, Duration: 192ms]
-2006.php                [Status: 302, Size: 154, Words: 4, Lines: 8, Duration: 194ms]
-2006.html               [Status: 302, Size: 154, Words: 4, Lines: 8, Duration: 192ms]
-news.html               [Status: 302, Size: 154, Words: 4, Lines: 8, Duration: 189ms]
-serial                  [Status: 302, Size: 154, Words: 4, Lines: 8, Duration: 189ms]
-serial.php              [Status: 302, Size: 154, Words: 4, Lines: 8, Duration: 191ms]
-warez                   [Status: 302, Size: 154, Words: 4, Lines: 8, Duration: 191ms]
-warez.php               [Status: 302, Size: 154, Words: 4, Lines: 8, Duration: 191ms]
-warez.html              [Status: 302, Size: 154, Words: 4, Lines: 8, Duration: 192ms]
-full.html               [Status: 302, Size: 154, Words: 4, Lines: 8, Duration: 188ms]
-12                      [Status: 302, Size: 154, Words: 4, Lines: 8, Duration: 194ms]
-12.php                  [Status: 302, Size: 154, Words: 4, Lines: 8, Duration: 194ms]
-12.html                 [Status: 302, Size: 154, Words: 4, Lines: 8, Duration: 198ms]
-contact                 [Status: 302, Size: 154, Words: 4, Lines: 8, Duration: 199ms]
-```
-After visiting one of it, we find an error 
-#### Exploring the website
-After editing /etc/hosts and visiting the website, we get the following
-![photobomb](imgs/website.png)
-Clicking the hyperlink provided directs us to a login form which we will surely try to manipulate! 
+printer                 [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 159ms]
+printer.php             [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 156ms]
+printer.html            [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 150ms]
+printers.php            [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 159ms]
+printers                [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 163ms]
+printers.html           [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 164ms]
+printerfriendly         [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 139ms]
+printerfriendly.php     [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 142ms]
+printerfriendly.html    [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 144ms]
+printer_friendly        [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 149ms]
+printer_friendly.php    [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 152ms]
+printer_friendly.html   [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 156ms]
+printer_icon            [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 139ms]
+printer_icon.php        [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 143ms]
+printer_icon.html       [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 140ms]
+printer-icon            [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 180ms]
+printer-icon.php        [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 179ms]
+printer-icon.html       [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 172ms]
+printer-friendly        [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 144ms]
+printer-friendly.php    [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 137ms]
+printer-friendly.html   [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 140ms]
+printerFriendly         [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 151ms]
+printerFriendly.php     [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 151ms]
+printerFriendly.html    [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 148ms]
+``` 
 ---
 ### Exploitation
+#### Login Form
+We can try different tactics to break this login form, which is until now the only clue we have.
+For starters, we attempt to test it with burpsuite. The auth request goes as follows
+```http
+GET /printer HTTP/1.1
+Host: photobomb.htb
+Cache-Control: max-age=0
+Authorization: Basic d3E6cXdxdw==
+```
+A GET request is sent with the header Authorization containing the value of the base64 of "username:password"
+```python
+with open("/usr/share/wordlists/rockyou.txt","r") as f:
+	with open("./payloads.txt","w") as payloads:
+		i=0
+		while i==0:
+			try:
+				 p = f.readline()
+			except:
+				continue
+			if p!='':
+				try:
+					payloads.write('admin:'+f.readline())
+				except:
+					continue
+			else:
+				i=1
+```
+
 ---
 ### Post Exploitation
 ---
