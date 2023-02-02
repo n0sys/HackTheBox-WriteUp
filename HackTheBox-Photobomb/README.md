@@ -1,7 +1,9 @@
 # HackTheBox Photobomb Writeup
 <!-- Description -->
-![photobomb](imgs/machine.png)
-Completed on ??/??/20??
+
+![photobomb](imgs/machine2.png)
+
+Completed on 02/02/2023
 <!-- /Description -->
 ## Table of Contents
 <!-- TOC -->
@@ -10,8 +12,15 @@ Completed on ??/??/20??
   - [Let's Get Going!](#lets-get-going)
     - [Enumeration](#enumeration)
       - [Nmap Scan](#nmap-scan)
+      - [Exploring The Website](#exploring-the-website)
+      - [Nikto scan](#nikto-scan)
+      - [Directory Fuzzing](#directory-fuzzing)
     - [Exploitation](#exploitation)
+      - [Login Form](#login-form)
+      - [Photo Galery and command injection](#photo-galery-and-command-injection)
+      - [Source code](#source-code)
     - [Post Exploitation](#post-exploitation)
+      - [Sudoers Privelege Escalation](#sudoers-privelege-escalation)
 <!-- /TOC -->
 ---
 ## Let's Get Going
@@ -39,14 +48,18 @@ Lets explore further http on port 80
 
 #### Exploring the website
 After editing /etc/hosts and visiting the website, we get the following
+
 ![photobomb](imgs/website.png)
+
 Clicking the hyperlink directs us to a login form which we will surely try to manipulate! The page source returned nothing interesting. We can continue by checking what the server returns in case of bad request
 ```
 <center><h1>400 Bad Request</h1></center>
 <hr><center>nginx/1.18.0 (Ubuntu)</center>
 ```
 And in the case of a 404 response
+
 ![photobomb](imgs/404.png)
+
 Searching further, we find in the source page a local URL with a port number
 ```html
  <img src='http://127.0.0.1:4567/__sinatra__/404.png'>
@@ -205,7 +218,7 @@ We can attempt to manipulate the parameters and see what results we get.
 We can start testing it by doing some input fuzzing. We do that by injecting in the parameters characters like ';', 'space' and 'line breaks' along side other commands.
 What gave it away to me was when using the line break with the ping command.
 ```bash
-%0aping%20$IP
+%0Aping%20$IP
 ```
 After sending this request, the server's response was very delayed, since the ping commands takes some time to complete.
 To be 100% sure about the injection, we set up a local php server to try and capture a request sent by the payload.
