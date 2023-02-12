@@ -46,5 +46,12 @@ SF:ative\r\n500\x20Invalid\x20command:\x20try\x20being\x20more\x20creative
 SF:\r\n");
 Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
 ```
+So we got ourselvers ftp and http servers to mess with. 
+### FTP
+### HTTP
+#### Nikto Scan
+#### Exploring the website
+
+
 ## Conclusion
 ---
